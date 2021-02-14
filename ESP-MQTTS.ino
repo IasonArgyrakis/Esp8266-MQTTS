@@ -14,127 +14,113 @@
 
 #include "secrets.h"
 
+
+
+
+
+
 // MQTT Test Topics
 #define in_topic "testo"
 #define out_topic "test/sensor"
+
 
 #define SERIAL_BAUD_RATE 115200
 
 WiFiClientSecure espClient;
 
-void callback(char *topic, byte *payload, unsigned int length)
-{
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  char receivedChar;
-  String msg = "";
-  for (int i = 0; i < length; i++)
-  {
-    msg += (char)payload[i];
-    Serial.print(receivedChar);
-    Serial.println();
-  }
+
+void callback(char* topic, byte* payload, unsigned int length) {
+ Serial.print("Message arrived [");
+ Serial.print(topic);
+ Serial.print("] ");
+ char receivedChar;
+ String msg="";
+ for (int i = 0; i < length; i++) {
+   msg += (char)payload[i];
+  Serial.print(receivedChar);
+  Serial.println();
+ }
   Serial.println(msg);
+ 
+ if( msg=="1"){pressButton();}
+ if( msg=="2"){query();}
+ 
 
-  if (msg == "1")
-  {
-    pressButton();
-  }
-  if (msg == "2")
-  {
-    query();
-  }
-}
+} 
 
-PubSubClient client(MQTT_SERVER, MQTT_PORT, callback, espClient);
+PubSubClient client(MQTT_SERVER, MQTT_PORT,callback,espClient);
 String clientId = "ESP8266-fab9";
 
 Servo button_push_servo;
 
-void setup()
-{
+void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println();
 
   pinMode(A0, INPUT);
   button_push_servo.attach(D6);
+  
+ 
 
+  // Append a random string to the cliendId stub
+ 
   Serial.print("setup: This device MQTT client ID is ");
   Serial.println(clientId);
-
+  
   // Configure essential network things - connect the wifi
   // set the system time and setInsecure is the magic option
   // to be able to connect to PubSubClients with username/password
   setup_wifi(WIFI_SSID, WIFI_PASSWORD);
   //setup_time();
   espClient.setInsecure();
+  
   Serial.println();
-}
-String json = "{ Armed :";
-
-bool lastT = 0;
-String stateJson() { return json + boolAsString(isArmed()) + "}"; }
-boolean isArmed()
-{
-  if (analogRead(A0) < 850)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-String boolAsString(boolean current)
-{
-  if (current)
-  {
-    return "true";
-  }
-  else
-  {
-    return "false";
-  }
+  
+ 
 }
 
-void loop()
-{
-  if (!client.connected())
-  {
+
+String json="{ Armed :";
+int transmited=0;
+bool lastT=0;
+String stateJson(){return json+state(isArmed())+"}";}
+boolean isArmed(){ if(analogRead(A0)<850){return true;} else {return false;}} 
+String state(boolean current){
+  if(current){return "true";}else{ return "false"; }}
+
+void loop() {
+  if (!client.connected()) {
     reconnect();
   }
   client.loop();
+  
+//this if is that one transmition is made on state change
+if(lastT!=isArmed()){
 
-  if (lastT != isArmed())
-  {
-    client.publish("outTopic", stateJson().c_str());
+  client.publish("outTopic",stateJson().c_str());
   }
-  lastT = isArmed();
-  delay(1000);
+  lastT=isArmed();
+delay(1000);
+
+  
 }
 
-void reconnect()
-{
+void reconnect() {
   // Loop until we're reconnected
-  while (!client.connected())
-  {
+  while (!client.connected()) {
     Serial.println("Attempting MQTT connection...");
     // Create a random client ID
-
+    
+  
     // Attempt to connect
-    if (client.connect("testing2"))
-    {
-
+    if (client.connect("testing2",MQTT_USER,MQTT_PASSWORD) ){
+      
       Serial.println("connected");
-      Serial.println("Attempt Subscriptions");
-      Serial.println(client.subscribe("testo", 1));
-      // Once connected, publish an announcement...
-      //client.publish("outTopic", "hello world");
-      // ... and resubscribe
-    }
-    else
-    {
+      // Once connected, subscribe to topics here 
+      
+      Serial.println(client.subscribe("testo",1));
+      
+    } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -144,8 +130,7 @@ void reconnect()
   }
 }
 
-void setup_wifi(const char *ssid, const char *pwd)
-{
+void setup_wifi(const char * ssid, const char * pwd) {
   delay(10);
   // We start by connecting to a WiFi network
   Serial.print("setup_wifi: Connecting to ");
@@ -154,8 +139,7 @@ void setup_wifi(const char *ssid, const char *pwd)
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pwd);
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
@@ -165,23 +149,31 @@ void setup_wifi(const char *ssid, const char *pwd)
   Serial.println(WiFi.localIP());
 }
 
-int pos = 0;
+
+
+
+
+int pos=0;
 void pressButton()
 {
-  client.publish("test/started_alarm_arm", "{ staterd :true }");
-  if (!isArmed())
-  {
-
-    for (pos = 0; pos <= 180; pos += 1)
-    { // goes from 0 degrees to 180 degrees
-      // in steps of 1 degree
-      button_push_servo.write(pos); // tell servo to go to position in variable 'pos'
-      delay(15);                    // waits 15ms for the servo to reach the position
-    }
-    for (pos = 180; pos >= 0; pos -= 1)
-    {                               // goes from 180 degrees to 0 degrees
-      button_push_servo.write(pos); // tell servo to go to position in variable 'pos'
-      delay(15);                    // waits 15ms for the servo to reach the position
-    }
+  client.publish("test/started_alarm_arm","{ staterd :true }");
+  if(!isArmed()){
+ 
+ 
+   for ( pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    button_push_servo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position
   }
+  for ( pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
+    button_push_servo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position
+  }
+  
 }
+}
+
+ void query(){client.publish("outTopic",stateJson().c_str());}
+  
+ 
+  
